@@ -1,0 +1,25 @@
+openapi: "3.0.0"
+info:
+  title: My API
+  version: 1.0.0
+  description: This is a sample API.
+paths:
+  /upload:
+    post:
+      summary: Uploads an image file
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        200:
+          description: "Uploading success"
+          content:
+            text/plain:
+              schema:
+                type: string
