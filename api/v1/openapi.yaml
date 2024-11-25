@@ -23,3 +23,42 @@ paths:
             text/plain:
               schema:
                 type: string
+#  /auth/{user_id}:
+#    get:
+#      summary: Return JWT token
+#      operationId: main.generate_token
+#      parameters:
+#        - name: user_id
+#          description: User unique identifier
+#          in: path
+#          required: true
+#          example: 12
+#          schema:
+#            type: integer
+#      responses:
+#        '200':
+#          description: JWT token
+#          content:
+#            'text/plain':
+#              schema:
+#                type: string
+#  /secret:
+#    get:
+#      summary: Return secret string
+#      operationId: main.get_secret
+#      responses:
+#        '200':
+#          description: secret response
+#          content:
+#            'text/plain':
+#              schema:
+#                type: string
+#      security:
+#        - jwt: [ 'secret' ]
+#components:
+#  securitySchemes:
+#    jwt:
+#      type: http
+#      scheme: bearer
+#      bearerFormat: JWT
+#      x-bearerInfoFunc: main.decode_token
