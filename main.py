@@ -1,5 +1,10 @@
+from pathlib import Path
+
 import uvicorn
 from connexion import AsyncApp, RestyResolver
+
+from config import load_config
+
 #import time
 
 #from jose import jwt
@@ -7,6 +12,11 @@ from connexion import AsyncApp, RestyResolver
 app = AsyncApp(__name__)
 
 app.add_api('api/v1/openapi.yaml', base_path='/api/v1', resolver=RestyResolver("api.v1"))
+
+working_directory = load_config()["working_directory"]
+
+Path(working_directory).mkdir(parents=True, exist_ok=True)
+
 
 #JWT_ISSUER = "com.vmbytsko.gallery"
 #JWT_SECRET = "12354"
