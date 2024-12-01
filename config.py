@@ -4,6 +4,26 @@ from enum import Enum
 import yaml
 
 
+class RequiredEntryNotConfiguredException(Exception):
+    def __init__(self, item_path):
+        self.item_path = item_path
+
+class _YamlConfig:
+    """Just a helper class to make it easier to handle non-configured entries."""
+    def __init__(self, yaml, prefix=""):
+        self.yaml = yaml
+        self.prefix = prefix
+
+    def __getitem__(self, item):
+        try:
+            if type(self.yaml[item]) is dict:
+                return _YamlConfig(self.yaml[item], self.prefix+"."+item)
+            else:
+                return self.yaml[item]
+        except:
+            raise RequiredEntryNotConfiguredException((self.prefix+"."+item)[1:])
+
+
 class Config:
     class Authentication:
         class Types(Enum):
@@ -28,16 +48,17 @@ def get_config() -> Config:
     __args = __parser.parse_args()
 
     __actual_version = __update_config()
-    __yaml_config = yaml.safe_load(open(__args.config))
+    __av = __actual_version
+    __yaml_config = _YamlConfig(yaml.safe_load(open(__args.config)))
 
     __temp_config = Config()
-    __temp_config.data_directory = __yaml_config[__actual_version]["dataDirectory"]
+    __temp_config.data_directory = __yaml_config[__av]["dataDirectory"]
     __temp_config.authentication = Config.Authentication()
-    __temp_config.authentication.auth_type = Config.Authentication.Types(__yaml_config["v1"]["authentication"]["type"])
+    __temp_config.authentication.auth_type = Config.Authentication.Types(__yaml_config[__av]["authentication"]["type"])
 
     __config_in_memory = __temp_config
     return __config_in_memory
 
 def __update_config() -> str:
-    # every time config parameters are updated and they need to be rewrited, new version appears
+    # every time config parameters are updated and need to be rewritten, new version appears
     return "v1"
