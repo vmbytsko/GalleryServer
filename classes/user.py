@@ -79,7 +79,7 @@ def register(username: str, password: str) -> str:
     user = get_user_from_username(username)
     return user.generate_token()
 
-def decode_token(token):
+def decode_token(token) -> dict:
     return jwt.decode(token,
                       JWT_SECRET,
                       options={
@@ -91,8 +91,11 @@ def decode_token(token):
                       algorithms=[JWT_ALGORITHM],
                       issuer=JWT_ISSUER)
 
-def get_user_from_token(token) -> User:
-    return User(json.loads(decode_token(token)["user_id"]))
+def get_user_from_token(token: str) -> User:
+    return get_user_from_token_info(decode_token(token))
+
+def get_user_from_token_info(token_info: dict) -> User:
+    return User(token_info["sub"].split(".")[0])
 
 def get_user_from_username(username) -> User:
     cursor = db.execute("SELECT * FROM Users WHERE username = ?", [username])
