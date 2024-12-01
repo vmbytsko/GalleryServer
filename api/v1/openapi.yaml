@@ -23,6 +23,8 @@ paths:
             text/plain:
               schema:
                 type: string
+      security:
+        - jwt: [ 'secret' ]
   /login:
     get:
       summary: Return JWT token
