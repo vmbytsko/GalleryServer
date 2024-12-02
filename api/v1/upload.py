@@ -13,8 +13,8 @@ async def post(token_info, file: starlette.datastructures.UploadFile):
 
     file_id = str(uuid.uuid4())
 
-    Path(get_config().data_directory+"/userfiles/"+user.user_id).mkdir(parents=True, exist_ok=True)
-    with open(get_config().data_directory+"/userfiles/"+user.user_id+"/"+file_id, "wb") as buffer:
+    Path(get_config().data_directory+"/userfiles/v1/"+user.user_id+"/v1").mkdir(parents=True, exist_ok=True)
+    with open(get_config().data_directory+"/userfiles/v1/"+user.user_id+"/v1/"+file_id, "wb") as buffer:
         while content := await file.read(1024):
             buffer.write(content)
 
