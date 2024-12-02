@@ -15,7 +15,7 @@ async def post(token_info, file: starlette.datastructures.UploadFile):
 
     Path(get_config().data_directory+"/userfiles/"+user.user_id).mkdir(parents=True, exist_ok=True)
     with open(get_config().data_directory+"/userfiles/"+user.user_id+"/"+file_id, "wb") as buffer:
-        while content := await file.read(1024):  # Читаем по 1024 байта
+        while content := await file.read(1024):
             buffer.write(content)
 
     return f"Hello", 200
