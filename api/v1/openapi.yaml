@@ -83,6 +83,18 @@ paths:
                 type: string
       security:
         - jwt: [ 'secret' ]
+  /head:
+    get:
+      summary: Get head commit
+      responses:
+        200:
+          description: "Getting head commit success"
+          content:
+            text/plain:
+              schema:
+                type: string
+      security:
+        - jwt: [ 'secret' ]
   /secret:
     get:
       summary: Return secret string
