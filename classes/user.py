@@ -59,10 +59,11 @@ class User:
         }
         return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
-    def save(self) -> Self:
+    def save(self, new: bool = False) -> Self:
         db.execute(
-            f"INSERT OR REPLACE INTO {USERS_TABLE} (user_id, status, username, password) VALUES (?, ?, ?, ?)",
+            f"{"INSERT" if new else "REPLACE"} INTO {USERS_TABLE} (user_id, status, username, password) VALUES (?, ?, ?, ?)",
             [self.user_id, self.status.value, self.username, self.password])
+        db.commit()
         return self
 
 
