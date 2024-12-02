@@ -61,6 +61,12 @@ class User:
         }
         return jwt.encode(payload, jwt_settings.jwt_secret, algorithm=jwt_settings.jwt_algorithm)
 
+    def get_head(self):
+        Path(get_config().data_directory + "/usercommits/v1/" + self.user_id + "/v1").mkdir(parents=True, exist_ok=True)
+        if not Path(get_config().data_directory + "/usercommits/v1/" + self.user_id + "/v1/HEAD").is_file():
+            return None
+        return open(get_config().data_directory + "/usercommits/v1/" + self.user_id + "/v1/HEAD", "r").read()
+
     def save(self, new: bool = False) -> Self:
         db.execute(
             f"{"INSERT" if new else "REPLACE"} INTO {USERS_TABLE} (user_id, status, username, password) VALUES (?, ?, ?, ?)",
