@@ -1,5 +1,3 @@
-import uuid
-
 from classes.user import get_user_from_username
 
 
