@@ -8,8 +8,10 @@ from jose import jwt
 
 import misc
 from config import get_config
+from misc import get_jwt_settings
 
 config = get_config()
+jwt_settings = get_jwt_settings()
 
 Path(config.data_directory+'/db/').mkdir(parents=True, exist_ok=True)
 db = sqlite3.connect(config.data_directory+'/db/users.db', check_same_thread=False)
@@ -52,12 +54,12 @@ class User:
     def generate_token(self, device_id: str = None):
         timestamp = misc.current_timestamp()
         payload = {
-            "iss": JWT_ISSUER,
+            "iss": jwt_settings.jwt_issuer,
             "iat": int(timestamp),
-            "exp": int(timestamp + JWT_LIFETIME_SECONDS),
+            "exp": int(timestamp + jwt_settings.jwt_lifetime_seconds),
             "sub": self.user_id+"."+(device_id or str(uuid.uuid4())),
         }
-        return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+        return jwt.encode(payload, jwt_settings.jwt_secret, algorithm=jwt_settings.jwt_algorithm)
 
     def save(self, new: bool = False) -> Self:
         db.execute(
@@ -65,12 +67,6 @@ class User:
             [self.user_id, self.status.value, self.username, self.password])
         db.commit()
         return self
-
-
-JWT_ISSUER = "com.vmbytsko.gallery"
-JWT_SECRET = "12354"
-JWT_LIFETIME_SECONDS = 60 * 60 * 24 * 365  # one year
-JWT_ALGORITHM = "HS256"
 
 
 def login(username: str, password: str) -> str:
@@ -83,15 +79,15 @@ def register(username: str, password: str) -> str:
 
 def decode_token(token) -> dict:
     return jwt.decode(token,
-                      JWT_SECRET,
+                      jwt_settings.jwt_secret,
                       options={
                           "require_sub": True,
                           "require_iss": True,
                           "require_iat": True,
                           "require_exp": True
                       },
-                      algorithms=[JWT_ALGORITHM],
-                      issuer=JWT_ISSUER)
+                      algorithms=[jwt_settings.jwt_algorithm],
+                      issuer=jwt_settings.jwt_issuer)
 
 def get_user_from_token(token: str) -> User:
     return get_user_from_token_info(decode_token(token))
