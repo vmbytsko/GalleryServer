@@ -1,4 +1,3 @@
-import json
 import sqlite3
 import uuid
 from enum import Enum
@@ -12,11 +11,13 @@ from config import get_config
 
 config = get_config()
 
-Path(config.data_directory+'/users/v1/').mkdir(parents=True, exist_ok=True)
-db = sqlite3.connect(config.data_directory+'/users/v1/users.db', check_same_thread=False)
+Path(config.data_directory+'/db/').mkdir(parents=True, exist_ok=True)
+db = sqlite3.connect(config.data_directory+'/db/users.db', check_same_thread=False)
+
+USERS_TABLE = "UsersV1"
 #TODO: db.isolation_level = None
 
-db.execute("CREATE TABLE IF NOT EXISTS Users (user_id TEXT PRIMARY KEY NOT NULL, status INTEGER NOT NULL, username TEXT NOT NULL, password TEXT NOT NULL)")
+db.execute(f"CREATE TABLE IF NOT EXISTS {USERS_TABLE} (user_id TEXT PRIMARY KEY NOT NULL, status INTEGER NOT NULL, username TEXT NOT NULL, password TEXT NOT NULL)")
 
 class UserDoesntExistException(Exception):
     pass
@@ -32,7 +33,7 @@ class User:
         self.user_id = user_id or str(uuid.uuid4())
 
         if not new:
-            cursor = db.execute("SELECT * FROM Users WHERE user_id = ?", [self.user_id])
+            cursor = db.execute(f"SELECT * FROM {USERS_TABLE} WHERE user_id = ?", [self.user_id])
             row = cursor.fetchone()
             if row is None:
                 cursor.close()
@@ -60,7 +61,7 @@ class User:
 
     def save(self) -> Self:
         db.execute(
-            "INSERT OR REPLACE INTO Users(user_id, status, username, password) VALUES (?, ?, ?, ?)",
+            f"INSERT OR REPLACE INTO {USERS_TABLE} (user_id, status, username, password) VALUES (?, ?, ?, ?)",
             [self.user_id, self.status.value, self.username, self.password])
         return self
 
@@ -98,7 +99,7 @@ def get_user_from_token_info(token_info: dict) -> User:
     return User(token_info["sub"].split(".")[0])
 
 def get_user_from_username(username) -> User:
-    cursor = db.execute("SELECT * FROM Users WHERE username = ?", [username])
+    cursor = db.execute(f"SELECT * FROM {USERS_TABLE} WHERE username = ?", [username])
     row = cursor.fetchone()
     if row is None:
         cursor.close()
