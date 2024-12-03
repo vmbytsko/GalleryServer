@@ -1,55 +1,34 @@
-import sqlite3
 import uuid
-from enum import Enum
 from pathlib import Path
-from typing import Self
 
 from jose import jwt
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import Mapped, mapped_column, sessionmaker
 
 import misc
 from config import get_config
-from misc import get_jwt_settings
+from security import get_jwt_settings
 
 config = get_config()
 jwt_settings = get_jwt_settings()
 
-Path(config.data_directory+'/db/').mkdir(parents=True, exist_ok=True)
-db = sqlite3.connect(config.data_directory+'/db/users.db', check_same_thread=False)
 
-USERS_TABLE = "UsersV1"
-#TODO: db.isolation_level = None
+__user_db_engine = create_async_engine("sqlite+aiosqlite:///"+get_config().data_directory+"/db/users.db", echo=True)
 
-db.execute(f"CREATE TABLE IF NOT EXISTS {USERS_TABLE} (user_id TEXT PRIMARY KEY NOT NULL, status INTEGER NOT NULL, username TEXT NOT NULL, password TEXT NOT NULL)")
+user_db_session_maker = sessionmaker(__user_db_engine, class_=AsyncSession)
 
-class UserDoesntExistException(Exception):
-    pass
-
-class UserStatus(Enum):
+class UserStatus(misc.IntEnum):
     DELETED_UNSPECIFIED = -1
     ACTIVE = 0
 
-class User:
-    def __init__(self, user_id: str = None, new: bool = False):
-        if not new and user_id is None:
-            raise Exception("no account_id provided")
-        self.user_id = user_id or str(uuid.uuid4())
+class User(misc.Base):
+    __tablename__ = "UsersV1"
 
-        if not new:
-            cursor = db.execute(f"SELECT * FROM {USERS_TABLE} WHERE user_id = ?", [self.user_id])
-            row = cursor.fetchone()
-            if row is None:
-                cursor.close()
-                raise UserDoesntExistException()
-
-            self.status = UserStatus(row[1])
-            self.username = row[2]
-            self.password = row[3]
-
-            if self.status.value < 0:
-                cursor.close()
-                raise UserDoesntExistException(f"user with id {self.user_id} bad status {self.status}")
-
-            cursor.close()
+    user_id: Mapped[str] = mapped_column(primary_key=True)
+    status: Mapped[UserStatus] = mapped_column(misc.IntEnum(UserStatus))
+    username: Mapped[str]
+    password: Mapped[str]
 
     def generate_token(self, device_id: str = None):
         timestamp = misc.current_timestamp()
@@ -57,7 +36,7 @@ class User:
             "iss": jwt_settings.jwt_issuer,
             "iat": int(timestamp),
             "exp": int(timestamp + jwt_settings.jwt_lifetime_seconds),
-            "sub": self.user_id+"."+(device_id or str(uuid.uuid4())),
+            "sub": self.user_id + "." + (device_id or str(uuid.uuid4())),
         }
         return jwt.encode(payload, jwt_settings.jwt_secret, algorithm=jwt_settings.jwt_algorithm)
 
@@ -67,21 +46,21 @@ class User:
             return None
         return open(get_config().data_directory + "/usercommits/v1/" + self.user_id + "/v1/HEAD", "r").read()
 
-    def save(self, new: bool = False) -> Self:
-        db.execute(
-            f"{"INSERT" if new else "REPLACE"} INTO {USERS_TABLE} (user_id, status, username, password) VALUES (?, ?, ?, ?)",
-            [self.user_id, self.status.value, self.username, self.password])
-        db.commit()
-        return self
+    async def save(self, session: AsyncSession, new: bool = False):
+        try:
+            if new:
+                session.add(self)
+            else:
+                await session.merge(self)
+        except:
+            await session.rollback()
+            raise
+        else:
+            await session.commit()
 
+    def __repr__(self) -> str:
+        return f"User(user_id={self.user_id})"
 
-def login(username: str, password: str) -> str:
-    user = get_user_from_username(username)
-    return user.generate_token()
-
-def register(username: str, password: str) -> str:
-    user = get_user_from_username(username)
-    return user.generate_token()
 
 def decode_token(token) -> dict:
     return jwt.decode(token,
@@ -95,16 +74,19 @@ def decode_token(token) -> dict:
                       algorithms=[jwt_settings.jwt_algorithm],
                       issuer=jwt_settings.jwt_issuer)
 
-def get_user_from_token(token: str) -> User:
-    return get_user_from_token_info(decode_token(token))
+async def get_user_from_token(token: str) -> User:
+    return await get_user_from_token_info(decode_token(token))
 
-def get_user_from_token_info(token_info: dict) -> User:
-    return User(token_info["sub"].split(".")[0])
+async def get_user_from_token_info(session: AsyncSession, token_info: dict) -> User:
+    try:
+        result = await session.execute(select(User).where(User.user_id == token_info["sub"].split(".")[0]))
+        return result.scalars().one()
+    except:
+        raise
 
-def get_user_from_username(username) -> User:
-    cursor = db.execute(f"SELECT * FROM {USERS_TABLE} WHERE username = ?", [username])
-    row = cursor.fetchone()
-    if row is None:
-        cursor.close()
-        raise UserDoesntExistException()
-    return User(row[0])
+async def get_user_from_username(session: AsyncSession, username: str) -> User:
+    try:
+        result = await session.execute(select(User).where(User.username == username))
+        return result.scalars().one()
+    except:
+        raise

@@ -1,36 +1,36 @@
 import time
-from pathlib import Path
-from secrets import token_urlsafe
+from typing import Self
 
-from config import get_config
+from sqlalchemy import TypeDecorator, Integer
+from sqlalchemy.orm import declarative_base
 
 
 def current_timestamp() -> int:
     return int(time.time())
 
 
-class JWTSettings:
-    def __init__(self):
-        self.jwt_issuer = "com.twicesafe.gallery"
-        self.jwt_secret = open(get_config().data_directory+"/security/jwt_secret.txt", "r").read()
-
-        if len(self.jwt_secret) == 0:
-            raise Exception
-
-        self.jwt_lifetime_seconds = 60 * 60 * 24 * 365  # one year
-        self.jwt_algorithm = "HS256"
+Base = declarative_base()
 
 
-__cached_jwt_settings: JWTSettings = None
+class IntEnum(TypeDecorator):
+    """
+    Enables passing in a Python enum and storing the enum's *value* in the db.
+    The default would have stored the enum's *name* (ie the string).
 
-def get_jwt_settings() -> JWTSettings:
-    global __cached_jwt_settings
-    if __cached_jwt_settings is not None:
-        return __cached_jwt_settings
+    https://gist.github.com/hasansezertasan/691a7ef67cc79ea669ff76d168503235
+    """
 
-    Path(get_config().data_directory+"/security").mkdir(parents=True, exist_ok=True)
-    if not Path(get_config().data_directory+"/security/jwt_secret.txt").is_file():
-        with open(get_config().data_directory+"/security/jwt_secret.txt", "w") as f:
-            f.write(token_urlsafe(128))
-    __cached_jwt_settings = JWTSettings()
-    return __cached_jwt_settings
+    impl = Integer
+
+    def __init__(self, enumtype, *args, **kwargs):
+        super(IntEnum, self).__init__(*args, **kwargs)
+        self._enumtype = enumtype
+
+    def process_bind_param(self, value: Self, dialect):
+        if isinstance(value, int):
+            return value
+
+        return value.value
+
+    def process_result_value(self, value, dialect):
+        return self._enumtype(value)

@@ -1,11 +1,12 @@
-from classes.user import get_user_from_token_info
+from classes.user import get_user_from_token_info, user_db_session_maker
 
 
-def search(token_info):
-    user = get_user_from_token_info(token_info)
-    head = user.get_head()
-    if head is None:
-        return None, 404
-    return head
+async def search(token_info):
+    async with user_db_session_maker() as session:
+        user = await get_user_from_token_info(session, token_info)
+        head = user.get_head()
+        if head is None:
+            return None, 404
+        return head
 
 # no put as there will be no force push

@@ -1,14 +1,15 @@
 import uuid
 
-from classes.user import User, UserStatus
+from classes.user import User, UserStatus, user_db_session_maker
 
 
 async def search(username: str, password: str):
-    user = User(str(uuid.uuid4()), new=True)
+    async with user_db_session_maker() as session:
+        user = User(user_id=str(uuid.uuid4()))
 
-    user.status = UserStatus.ACTIVE
-    user.username = username
-    user.password = password
+        user.status = UserStatus.ACTIVE
+        user.username = username
+        user.password = password
+        await user.save(session, new=True)
 
-    user.save(new=True)
-    return user.generate_token()
+        return user.generate_token()
