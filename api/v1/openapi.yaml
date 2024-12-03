@@ -48,6 +48,53 @@ paths:
             'text/plain':
               schema:
                 type: string
+  /register:
+    get:
+      summary: Register user and return JWT token
+      parameters:
+        - name: username
+          description: Username
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: password
+          description: User password
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: JWT token
+          content:
+            'text/plain':
+              schema:
+                type: string
+  /refreshToken:
+    get:
+      summary: Get new JWT token for this device
+      responses:
+        200:
+          description: "Refreshing token success"
+          content:
+            text/plain:
+              schema:
+                type: string
+      security:
+        - jwt: [ 'secret' ]
+  /head:
+    get:
+      summary: Get head commit
+      responses:
+        200:
+          description: "Getting head commit success"
+          content:
+            text/plain:
+              schema:
+                type: string
+      security:
+        - jwt: [ 'secret' ]
   /secret:
     get:
       summary: Return secret string

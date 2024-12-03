@@ -1,106 +1,92 @@
-import json
-import sqlite3
 import uuid
-from enum import Enum
 from pathlib import Path
-from typing import Self
 
 from jose import jwt
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import Mapped, mapped_column, sessionmaker
 
 import misc
 from config import get_config
+from security import get_jwt_settings
 
 config = get_config()
+jwt_settings = get_jwt_settings()
 
-Path(config.data_directory+'/users/v1/').mkdir(parents=True, exist_ok=True)
-db = sqlite3.connect(config.data_directory+'/users/v1/users.db', check_same_thread=False)
-#TODO: db.isolation_level = None
 
-db.execute("CREATE TABLE IF NOT EXISTS Users (user_id TEXT PRIMARY KEY NOT NULL, status INTEGER NOT NULL, username TEXT NOT NULL, password TEXT NOT NULL)")
+__user_db_engine = create_async_engine("sqlite+aiosqlite:///"+get_config().data_directory+"/db/users.db", echo=True)
 
-class UserDoesntExistException(Exception):
-    pass
+user_db_session_maker = sessionmaker(__user_db_engine, class_=AsyncSession)
 
-class UserStatus(Enum):
+class UserStatus(misc.IntEnum):
     DELETED_UNSPECIFIED = -1
     ACTIVE = 0
 
-class User:
-    def __init__(self, user_id: str = None, new: bool = False):
-        if not new and user_id is None:
-            raise Exception("no account_id provided")
-        self.user_id = user_id or str(uuid.uuid4())
+class User(misc.Base):
+    __tablename__ = "UsersV1"
 
-        if not new:
-            cursor = db.execute("SELECT * FROM Users WHERE user_id = ?", [self.user_id])
-            row = cursor.fetchone()
-            if row is None:
-                cursor.close()
-                raise UserDoesntExistException()
-
-            self.status = UserStatus(row[1])
-            self.username = row[2]
-            self.password = row[3]
-
-            if self.status.value < 0:
-                cursor.close()
-                raise UserDoesntExistException(f"user with id {self.user_id} bad status {self.status}")
-
-            cursor.close()
+    user_id: Mapped[str] = mapped_column(primary_key=True)
+    status: Mapped[UserStatus] = mapped_column(misc.IntEnum(UserStatus))
+    username: Mapped[str]
+    password: Mapped[str]
 
     def generate_token(self, device_id: str = None):
         timestamp = misc.current_timestamp()
         payload = {
-            "iss": JWT_ISSUER,
+            "iss": jwt_settings.jwt_issuer,
             "iat": int(timestamp),
-            "exp": int(timestamp + JWT_LIFETIME_SECONDS),
-            "sub": self.user_id+"."+(device_id or str(uuid.uuid4())),
+            "exp": int(timestamp + jwt_settings.jwt_lifetime_seconds),
+            "sub": self.user_id + "." + (device_id or str(uuid.uuid4())),
         }
-        return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+        return jwt.encode(payload, jwt_settings.jwt_secret, algorithm=jwt_settings.jwt_algorithm)
 
-    def save(self) -> Self:
-        db.execute(
-            "INSERT OR REPLACE INTO Users(user_id, status, username, password) VALUES (?, ?, ?, ?)",
-            [self.user_id, self.status.value, self.username, self.password])
-        return self
+    def get_head(self):
+        Path(get_config().data_directory + "/usercommits/v1/" + self.user_id + "/v1").mkdir(parents=True, exist_ok=True)
+        if not Path(get_config().data_directory + "/usercommits/v1/" + self.user_id + "/v1/HEAD").is_file():
+            return None
+        return open(get_config().data_directory + "/usercommits/v1/" + self.user_id + "/v1/HEAD", "r").read()
 
+    async def save(self, session: AsyncSession, new: bool = False):
+        try:
+            if new:
+                session.add(self)
+            else:
+                await session.merge(self)
+        except:
+            await session.rollback()
+            raise
+        else:
+            await session.commit()
 
-JWT_ISSUER = "com.vmbytsko.gallery"
-JWT_SECRET = "12354"
-JWT_LIFETIME_SECONDS = 60 * 60 * 24 * 365  # one year
-JWT_ALGORITHM = "HS256"
+    def __repr__(self) -> str:
+        return f"User(user_id={self.user_id})"
 
-
-def login(username: str, password: str) -> str:
-    user = get_user_from_username(username)
-    return user.generate_token()
-
-def register(username: str, password: str) -> str:
-    user = get_user_from_username(username)
-    return user.generate_token()
 
 def decode_token(token) -> dict:
     return jwt.decode(token,
-                      JWT_SECRET,
+                      jwt_settings.jwt_secret,
                       options={
                           "require_sub": True,
                           "require_iss": True,
                           "require_iat": True,
                           "require_exp": True
                       },
-                      algorithms=[JWT_ALGORITHM],
-                      issuer=JWT_ISSUER)
+                      algorithms=[jwt_settings.jwt_algorithm],
+                      issuer=jwt_settings.jwt_issuer)
 
-def get_user_from_token(token: str) -> User:
-    return get_user_from_token_info(decode_token(token))
+async def get_user_from_token(token: str) -> User:
+    return await get_user_from_token_info(decode_token(token))
 
-def get_user_from_token_info(token_info: dict) -> User:
-    return User(token_info["sub"].split(".")[0])
+async def get_user_from_token_info(session: AsyncSession, token_info: dict) -> User:
+    try:
+        result = await session.execute(select(User).where(User.user_id == token_info["sub"].split(".")[0]))
+        return result.scalars().one()
+    except:
+        raise
 
-def get_user_from_username(username) -> User:
-    cursor = db.execute("SELECT * FROM Users WHERE username = ?", [username])
-    row = cursor.fetchone()
-    if row is None:
-        cursor.close()
-        raise UserDoesntExistException()
-    return User(row[0])
+async def get_user_from_username(session: AsyncSession, username: str) -> User:
+    try:
+        result = await session.execute(select(User).where(User.username == username))
+        return result.scalars().one()
+    except:
+        raise
