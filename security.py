@@ -6,7 +6,7 @@ from config import get_config
 
 class JWTSettings:
     def __init__(self):
-        self.jwt_issuer = "com.twicesafe.gallery"
+        self.jwt_issuer = "com.twicesafe.vault"
         self.jwt_secret = open(get_config().data_directory+"/security/jwt_secret.txt", "r").read()
 
         if len(self.jwt_secret) == 0:

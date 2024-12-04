@@ -25,30 +25,7 @@ paths:
                 type: string
       security:
         - jwt: [ 'secret' ]
-  /login:
-    get:
-      summary: Return JWT token
-      parameters:
-        - name: username
-          description: Username
-          in: query
-          required: true
-          schema:
-            type: string
-        - name: password
-          description: User password
-          in: query
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: JWT token
-          content:
-            'text/plain':
-              schema:
-                type: string
-  /register:
+  /auth/register:
     get:
       summary: Register user and return JWT token
       parameters:
@@ -71,7 +48,30 @@ paths:
             'text/plain':
               schema:
                 type: string
-  /refreshToken:
+  /auth/login:
+    get:
+      summary: Return JWT token
+      parameters:
+        - name: username
+          description: Username
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: password
+          description: User password
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: JWT token
+          content:
+            'text/plain':
+              schema:
+                type: string
+  /auth/refreshToken:
     get:
       summary: Get new JWT token for this device
       responses:
@@ -83,26 +83,70 @@ paths:
                 type: string
       security:
         - jwt: [ 'secret' ]
-  /head:
+  /repository/{repository_name}/head:
     get:
-      summary: Get head commit
+      parameters:
+        - name: repository_name
+          description: Repository name
+          in: path
+          required: true
+          schema:
+            type: string
       responses:
         200:
-          description: "Getting head commit success"
+          description: "Getting head success"
           content:
             text/plain:
               schema:
                 type: string
       security:
         - jwt: [ 'secret' ]
-  /secret:
-    get:
-      summary: Return secret string
+  /repository/{repository_name}/commit:
+    post:
+      parameters:
+        - name: repository_name
+          description: Repository name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        x-body-name: commit
+        description: Commit data
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
       responses:
-        '200':
-          description: secret response
+        200:
+          description: "Add new commit"
           content:
-            'text/plain':
+            text/plain:
+              schema:
+                type: string
+      security:
+        - jwt: [ 'secret' ]
+  /repository/{repository_name}/commit/{commit_id}:
+    get:
+      parameters:
+        - name: repository_name
+          description: Repository name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: commit_id
+          description: Commit ID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: "Commit info"
+          content:
+            text/plain:
               schema:
                 type: string
       security:
