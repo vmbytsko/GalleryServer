@@ -53,8 +53,8 @@ def get_config() -> Config:
 
     __temp_config = Config()
     __temp_config.data_directory = __yaml_config[__av]["dataDirectory"]
-    __temp_config.authentication = Config.Authentication()
-    __temp_config.authentication.auth_type = Config.Authentication.Types(__yaml_config[__av]["authentication"]["type"])
+    #__temp_config.authentication = Config.Authentication()
+    #__temp_config.authentication.auth_type = Config.Authentication.Types(__yaml_config[__av]["authentication"]["type"])
 
     __config_in_memory = __temp_config
     return __config_in_memory
