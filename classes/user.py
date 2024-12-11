@@ -38,29 +38,44 @@ class User(misc.Base):
         }
         return jwt.encode(payload, jwt_settings.jwt_secret, algorithm=jwt_settings.jwt_algorithm)
 
-    def get_head(self, repository_name):
-        folder_path = get_config().data_directory + "/usercommits/v1/" + self.user_id + "/v1/"+repository_name
-        head_path = folder_path+"/HEAD"
+    def get_last_event_id(self, chain_name):
+        folder_path = get_config().data_directory + "/userevents/v1/" + self.user_id + "/v1/" + chain_name
+        last_event_path = folder_path+"/LAST"
         Path(folder_path).mkdir(parents=True, exist_ok=True)
-        if not Path(head_path).is_file():
+        if not Path(last_event_path).is_file():
             return None
-        return open(head_path, "r").read()
+        with open(last_event_path, "r") as f:  # TODO: synchronously read this file
+            return f.read()
 
-    def add_commit(self, repository_name: str, commit: dict):
-        folder_path = get_config().data_directory + "/usercommits/v1/" + self.user_id + "/v1/" + repository_name
+    def unsafe_set_last_event_id(self, chain_name, event_id):
+        folder_path = get_config().data_directory + "/userevents/v1/" + self.user_id + "/v1/" + chain_name
+        last_event_path = folder_path + "/LAST"
+        Path(folder_path).mkdir(parents=True, exist_ok=True)
+        f = open(last_event_path, "w")
+        f.write(event_id)
+        f.flush()
+        f.close()
+
+    def add_event(self, chain_name: str, event: dict) -> str:
+        event_id = self.unsafe_add_event(chain_name, event)
+        self.unsafe_set_last_event_id(chain_name, event_id)
+        return event_id
+
+    def unsafe_add_event(self, chain_name: str, event: dict) -> str:
+        folder_path = get_config().data_directory + "/userevents/v1/" + self.user_id + "/v1/" + chain_name
 
         Path(folder_path).mkdir(parents=True, exist_ok=True)
 
-        commit_id = str(uuid.uuid4())
-        commit_path = folder_path + "/" + commit_id
+        event_id = str(uuid.uuid4())
+        event_path = folder_path + "/" + event_id
         while Path(
-                commit_path).is_file():
-            commit_id = str(uuid.uuid4())
-            commit_path = folder_path + "/" + commit_id
+                event_path).is_file():
+            event_id = str(uuid.uuid4())
+            event_path = folder_path + "/" + event_id
 
-        open(commit_path, "w").write(json.dumps(commit))
+        open(event_path, "w").write(json.dumps(event))
 
-        return commit_id
+        return event_id
 
     def save(self, new: bool = False):
         try:
