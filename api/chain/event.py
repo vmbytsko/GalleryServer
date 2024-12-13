@@ -3,7 +3,7 @@ import uuid
 from pathlib import Path
 
 import misc
-from classes.user import get_user_from_token_info
+from classes.user import get_device_from_token_info
 from config import get_config
 
 spec_paths = {
@@ -128,11 +128,11 @@ def get_v1dot0(token_info: dict, chain_name: str, event_id: str):
             }
         }, 400
 
-    user = get_user_from_token_info(token_info)
-    Path(get_config().data_directory + "/userevents/v1/" + user.user_id + "/v1/" + chain_name).mkdir(
+    device = get_device_from_token_info(token_info)
+    Path(get_config().data_directory + "/userevents/v1/" + device.user.user_id + "/v1/" + chain_name).mkdir(
         parents=True, exist_ok=True)
     if not Path(
-            get_config().data_directory + "/userevents/v1/" + user.user_id + "/v1/" + chain_name + "/" + event_id).is_file():
+            get_config().data_directory + "/userevents/v1/" + device.user.user_id + "/v1/" + chain_name + "/" + event_id).is_file():
         return {
             "error": {
                 "code": 1,  # TODO: create own status
@@ -182,9 +182,9 @@ def post_v1dot0(token_info: dict, chain_name: str, event: dict):
     #  return server-generated event_id and even ignore non-matching last event
     #  and contents of the event.
 
-    user = get_user_from_token_info(token_info)
+    device = get_device_from_token_info(token_info)
 
-    if user.get_last_event_id(chain_name) != event.get("parent", None):
+    if device.user.get_last_event_id(chain_name) != event.get("parent", None):
         return {
             "error": {
                 "code": 1,  # TODO: create code

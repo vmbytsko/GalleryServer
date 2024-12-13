@@ -1,12 +1,13 @@
 import json
 import uuid
 from pathlib import Path
-from typing import Self
+from typing import Self, Set, Any
 
 import jwt
 import sqlalchemy
-from sqlalchemy import select, Engine
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import select, Engine, ForeignKey, JSON
+from sqlalchemy.exc import NoResultFound
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 import misc
 from config import get_config
@@ -27,16 +28,7 @@ class User(misc.Base):
     status: Mapped[UserStatus] = mapped_column(misc.IntEnum(UserStatus))
     username: Mapped[str] = mapped_column(unique=True)
     password: Mapped[str]
-
-    def generate_token(self, device_id: str = None):
-        timestamp = misc.current_timestamp()
-        payload = {
-            "iss": jwt_settings.jwt_issuer,
-            "iat": int(timestamp),
-            "exp": int(timestamp + jwt_settings.jwt_lifetime_seconds),
-            "sub": self.user_id + "." + (device_id or str(uuid.uuid4())),
-        }
-        return jwt.encode(payload, jwt_settings.jwt_secret, algorithm=jwt_settings.jwt_algorithm)
+    devices: Mapped[Set["Device"]] = relationship(back_populates="user")
 
     def get_last_event_id(self, chain_name):
         folder_path = get_config().data_directory + "/userevents/v1/" + self.user_id + "/v1/" + chain_name
@@ -95,6 +87,45 @@ class User(misc.Base):
     def __eq__(self, other: Self):
         return self.user_id == other.user_id
 
+class DeviceStatus(misc.IntEnum):
+    LOGGED_OUT_UNSPECIFIED = -1
+    LOGGED_IN = 0
+
+class Device(misc.Base):
+    __tablename__ = "DevicesV1"
+
+    device_id: Mapped[str] = mapped_column(primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey('UsersV1.user_id'))
+    user: Mapped["User"] = relationship(back_populates="devices")
+    status: Mapped[DeviceStatus] = mapped_column(misc.IntEnum(DeviceStatus))
+    created_at: Mapped[int]
+    updated_at: Mapped[int]
+    data: Mapped[dict[str, Any]]
+
+    def generate_token_and_update(self):
+        timestamp = misc.current_timestamp()
+        payload = {
+            "iss": jwt_settings.jwt_issuer,
+            "iat": timestamp,
+            "exp": timestamp + jwt_settings.jwt_lifetime_seconds,
+            "sub": self.user.user_id + "." + self.device_id,
+        }
+        self.updated_at = timestamp
+        self.save()
+        return jwt.encode(payload, jwt_settings.jwt_secret, algorithm=jwt_settings.jwt_algorithm)
+
+    def save(self, new: bool = False):
+        try:
+            if new:
+                db.add(self)
+            else:
+                db.merge(self)
+        except:
+            db.rollback()
+            raise
+        else:
+            db.commit()
+
 
 def decode_token(token) -> dict:
     return jwt.decode(token,
@@ -108,28 +139,37 @@ def decode_token(token) -> dict:
                       algorithms=[jwt_settings.jwt_algorithm],
                       issuer=jwt_settings.jwt_issuer)
 
-def get_user_from_token(token: str) -> User:
-    return get_user_from_token_info(decode_token(token))
+def get_device_from_token(token: str, accepted_statuses: list[UserStatus] = []) -> Device:
+    return get_device_from_token_info(decode_token(token), accepted_statuses)
 
-def get_user_from_token_info(token_info: dict) -> User:
+def get_device_from_token_info(token_info: dict, accepted_statuses: list[UserStatus] = []) -> Device:
     try:
-        result = db.execute(select(User).where(User.user_id == token_info["sub"].split(".")[0]))
-        return result.scalars().one()
+        user_id, device_id = token_info["sub"].split(".")
+        result = db.execute(select(Device).where(Device.device_id == device_id))
+        device = result.scalars().one()
+        if device.user.user_id != user_id:
+            raise
+        if device.updated_at != token_info["iat"]:
+            raise
+        return device
     except:
         raise
 
-def get_user_from_user_id(user_id: str) -> User:
+def get_user_from_user_id(user_id: str, accepted_statuses: list[UserStatus] = [], raise_error: bool = True) -> User | None:
     try:
         result = db.execute(select(User).where(User.user_id == user_id))
         return result.scalars().one()
-    except:
-        raise
+    except NoResultFound:
+        if raise_error:
+            raise
+        else:
+            return None
 
-def get_user_from_username(username: str, raise_error: bool = True) -> User | None:
+def get_user_from_username(username: str, accepted_statuses: list[UserStatus] = [], raise_error: bool = True) -> User | None:
     try:
         result = db.execute(select(User).where(User.username == username))
         return result.scalars().one()
-    except:
+    except NoResultFound:
         if raise_error:
             raise
         else:

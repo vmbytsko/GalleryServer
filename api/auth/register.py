@@ -1,6 +1,7 @@
 import uuid
 
-from classes.user import User, UserStatus, get_user_from_username
+import misc
+from classes.user import User, UserStatus, get_user_from_username, Device, DeviceStatus
 
 spec_paths = {
     "v1.0": {
@@ -65,16 +66,25 @@ def post_v1dot0(username: str, password: str):
                 "description": "User with specified username is already present in our database. Can't register with this username."
             }
         }, 400
-    user = User()
 
+    user = User()
     user.user_id = str(uuid.uuid4())
     user.status = UserStatus.ACTIVE
     user.username = username
     user.password = password
     user.save(new=True)
 
+    device = Device()
+    device.device_id = str(uuid.uuid4())
+    device.status = DeviceStatus.LOGGED_IN
+    device.data = {}
+    device.created_at = misc.current_timestamp()
+    device.updated_at = misc.current_timestamp()
+    device.user = user
+    device.save(new=True)
+
     return {
         "response": {
-            "token": user.generate_token()
+            "token": device.generate_token_and_update()
         }
     }, 200

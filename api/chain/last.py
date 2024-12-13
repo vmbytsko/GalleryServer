@@ -1,5 +1,5 @@
 import misc
-from classes.user import get_user_from_token_info
+from classes.user import get_device_from_token_info
 
 spec_paths = {
     "v1.0": {
@@ -50,8 +50,8 @@ def search_v1dot0(token_info: dict, chain_name: str):
             }
         }, 400
 
-    user = get_user_from_token_info(token_info)
-    last_event_id = user.get_last_event_id(chain_name)
+    device = get_device_from_token_info(token_info)
+    last_event_id = device.user.get_last_event_id(chain_name)
     if last_event_id is None:
         return {
             "error": {
