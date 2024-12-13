@@ -108,7 +108,7 @@ class Device(misc.Base):
             "iss": jwt_settings.jwt_issuer,
             "iat": timestamp,
             "exp": timestamp + jwt_settings.jwt_lifetime_seconds,
-            "sub": self.user.user_id + "." + self.device_id,
+            "sub": self.user.user_id + "." + "access" + "." + self.device_id,
         }
         self.updated_at = timestamp
         self.save()
@@ -144,7 +144,7 @@ def get_device_from_token(token: str, accepted_statuses: list[UserStatus] = []) 
 
 def get_device_from_token_info(token_info: dict, accepted_statuses: list[UserStatus] = []) -> Device:
     try:
-        user_id, device_id = token_info["sub"].split(".")
+        user_id, token_type, device_id = token_info["sub"].split(".")
         result = db.execute(select(Device).where(Device.device_id == device_id))
         device = result.scalars().one()
         if device.user.user_id != user_id:
