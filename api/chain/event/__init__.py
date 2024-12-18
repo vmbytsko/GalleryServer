@@ -129,10 +129,10 @@ def get_v1dot0(token_info: dict, chain_name: str, event_id: str):
         }, 400
 
     device = get_device_from_token_info(token_info)
-    Path(get_config().data_directory + "/userevents/v1/" + device.user.user_id + "/v1/" + chain_name).mkdir(
+    Path(get_config().data_directory + "/userevents/v1/" + device.user.user_id + "/v1/" + chain_name + "/" + event_id).mkdir(
         parents=True, exist_ok=True)
     if not Path(
-            get_config().data_directory + "/userevents/v1/" + device.user.user_id + "/v1/" + chain_name + "/" + event_id).is_file():
+            get_config().data_directory + "/userevents/v1/" + device.user.user_id + "/v1/" + chain_name + "/" + event_id + "/" + "data.txt").is_file():
         return {
             "error": {
                 "code": 1,  # TODO: create own status
@@ -143,13 +143,19 @@ def get_v1dot0(token_info: dict, chain_name: str, event_id: str):
     return {
         "response": {
             "event": json.loads(open(
-                get_config().data_directory + "/userevents/v1/" + user.user_id + "/v1/" + chain_name + "/" + event_id,
+                get_config().data_directory + "/userevents/v1/" + device.user.user_id + "/v1/" + chain_name + "/" + event_id + "/" + "data.txt",
                 "r").read())
         }
     }, 200
 
 
 def post_v1dot0(token_info: dict, chain_name: str, event: dict):
+
+    # TODO: handle request_id: when user sends event with request_id,
+    #  which was already handled in the last 24 hours,
+    #  return server-generated event_id and even ignore non-matching last event
+    #  and contents of the event.
+
     if not misc.check_chain_name(chain_name):
         return {
             "error": {
@@ -176,11 +182,6 @@ def post_v1dot0(token_info: dict, chain_name: str, event: dict):
                 "description": "As a part of specification, the 'request_id' parameter must be UUID."
             }
         }, 400
-
-    # TODO: handle request_id: when user sends event with request_id,
-    #  which was already handled in the last 24 hours,
-    #  return server-generated event_id and even ignore non-matching last event
-    #  and contents of the event.
 
     device = get_device_from_token_info(token_info)
 
@@ -229,8 +230,47 @@ def post_v1dot0(token_info: dict, chain_name: str, event: dict):
             }
         }, 400
 
+    if "files" in event.keys():
+        if type(event["files"]) is not list:
+            return {
+                "error": {
+                    "code": 1,  # TODO: create code
+                    "name": "malformed_files",
+                    "description": "\"files\" parameter must be array of strings representing IDs of files."
+                }
+            }, 400
+
+        if not all(isinstance(elem, str) for elem in event["files"]):
+            return {
+                "error": {
+                    "code": 1,  # TODO: create code
+                    "name": "malformed_files",
+                    "description": "\"files\" parameter must be array of strings representing IDs of files."
+                }
+            }, 400
+
+        if not all(misc.check_uuid(file_id) for file_id in event["files"]):
+            return {
+                "error": {
+                    "code": 1,  # TODO: create code
+                    "name": "malformed_files",
+                    "description": "\"files\" parameter must be array of strings representing IDs of files."
+                }
+            }, 400
+
+        if not all(
+                Path(get_config().data_directory + "/userevents/v1/" + device.user.user_id + "/v1/" + chain_name + "/.tempfiles/" + file_id).exists()
+                for file_id in event["files"]):
+            return {
+                "error": {
+                    "code": 1,  # TODO: create code
+                    "name": "nonexistent_temp_files",
+                    "description": "Some IDs in \"files\" parameter are not present on the server."
+                }
+            }, 400
+
     temp_id = str(uuid.uuid4())
-    misc.add_event_requests_queue.put(misc.AddEventRequest(temp_id, user.user_id, chain_name, event))
+    misc.add_event_requests_queue.put(misc.AddEventRequest(temp_id, device.user.user_id, chain_name, event))
     while True:
         try:
             response: misc.AddEventResponse = misc.add_event_responses_queue.get()

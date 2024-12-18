@@ -54,16 +54,23 @@ class User(misc.Base):
         return event_id
 
     def unsafe_add_event(self, chain_name: str, event: dict) -> str:
-        folder_path = get_config().data_directory + "/userevents/v1/" + self.user_id + "/v1/" + chain_name
-
-        Path(folder_path).mkdir(parents=True, exist_ok=True)
+        chain_folder_path = get_config().data_directory + "/userevents/v1/" + self.user_id + "/v1/" + chain_name
+        Path(chain_folder_path).mkdir(parents=True, exist_ok=True)
 
         event_id = str(uuid.uuid4())
-        event_path = folder_path + "/" + event_id
+        event_folder_path = chain_folder_path + "/" + event_id
+        event_path = event_folder_path + "/" + "data.txt"
         while Path(
                 event_path).is_file():
             event_id = str(uuid.uuid4())
-            event_path = folder_path + "/" + event_id
+            event_path = event_folder_path + "/" + "data.txt"
+
+        Path(event_folder_path).mkdir(parents=True, exist_ok=True)
+
+        if "files" in event.keys():
+            for file_id in event["files"]:
+                (Path(chain_folder_path + "/.tempfiles/" + file_id)
+                 .rename(event_folder_path + "/" + file_id))
 
         open(event_path, "w").write(json.dumps(event))
 
