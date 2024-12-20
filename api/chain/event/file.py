@@ -109,7 +109,7 @@ def get_v1dot0(token_info, chain_name, event_id, file_id):
                 "name": "chain_not_initialized",
                 "description": "Chain with name specified is not initialized. Refer to POST /chain/{chain_name}."
             }
-        }, 400
+        }, 400, {"Content-Type": "application/json"}
 
     Path(
         get_config().data_directory + "/userevents/v1/" + device.user.user_id + "/v1/" + chain_name + "/" + event_id).mkdir(

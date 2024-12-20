@@ -77,7 +77,7 @@ def post_v1dot0(token_info, chain_name):
             }
         }, 400
 
-    chain_options_folder.mkdir()
+    chain_options_folder.mkdir(parents=True, exist_ok=True)
 
     with open(chain_options_file, "w") as f:
         f.write("{}")
