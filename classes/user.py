@@ -151,16 +151,19 @@ class Device(misc.Base):
 
 
 def decode_token(token) -> dict:
-    return jwt.decode(token,
-                      jwt_settings.jwt_secret,
-                      options={
-                          "require_sub": True,
-                          "require_iss": True,
-                          "require_iat": True,
-                          "require_exp": True
-                      },
-                      algorithms=[jwt_settings.jwt_algorithm],
-                      issuer=jwt_settings.jwt_issuer)
+    try:
+        return jwt.decode(token,
+                          jwt_settings.jwt_secret,
+                          options={
+                              "require_sub": True,
+                              "require_iss": True,
+                              "require_iat": True,
+                              "require_exp": True
+                          },
+                          algorithms=[jwt_settings.jwt_algorithm],
+                          issuer=jwt_settings.jwt_issuer)
+    except:
+        return {}
 
 def get_device_from_token(token: str, accepted_statuses: list[UserStatus] = []) -> Device:
     return get_device_from_token_info(decode_token(token), accepted_statuses)
