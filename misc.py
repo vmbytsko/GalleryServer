@@ -142,7 +142,7 @@ def generate_versioned_openapis():
             yaml.dump({
                 "openapi": "3.0.0",
                 "info": {
-                    "title": "TwiceSafe Vault API",
+                    "title": "Beshence Vault API",
                     "version": version,
                     "description": "API for clients"
                 },

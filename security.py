@@ -16,7 +16,7 @@ JWT_SECRET_PATH = get_config().data_directory+"/security/jwt/v1/secret.txt"
 
 class JWTSettings:
     def __init__(self):
-        self.jwt_issuer = "com.twicesafe.vault"
+        self.jwt_issuer = "com.beshence.vault"
         self.jwt_secret = open(JWT_SECRET_PATH, "r").read()
 
         if len(self.jwt_secret) == 0:
