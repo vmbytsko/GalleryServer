@@ -76,6 +76,22 @@ class User(misc.Base):
 
         return event_id
 
+    def check_chain_exists(self, chain_name):
+        if not misc.check_chain_name(chain_name):
+            return False
+
+        chain_options_folder = Path(
+            get_config().data_directory + "/userevents/v1/" + self.user_id + "/v1/" + chain_name)
+        if not chain_options_folder.exists():
+            return False
+
+        chain_options_file = Path(
+            get_config().data_directory + "/userevents/v1/" + self.user_id + "/v1/" + chain_name + "/INIT")
+        if not chain_options_file.exists():
+            return False
+
+        return True
+
     def save(self, new: bool = False):
         try:
             if new:

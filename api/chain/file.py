@@ -3,6 +3,7 @@ from pathlib import Path
 
 import starlette.datastructures
 
+import misc
 from classes.user import get_device_from_token_info
 from config import get_config
 
@@ -115,8 +116,34 @@ spec_paths = {
 
 
 async def post_v1dot0(token_info, chain_name, file: starlette.datastructures.UploadFile):
+    if not misc.check_chain_name(chain_name):
+        return {
+            "error": {
+                "code": 1,  # TODO: create code
+                "name": "malformed_chain_name",
+                "description": "As a part of specification, chain name should be lowercase alpha string (only letters) with maximum length of 32."
+            }
+        }, 400
+
     device = get_device_from_token_info(token_info)
-    assert isinstance(file, starlette.datastructures.UploadFile)
+
+    if not device.user.check_chain_exists(chain_name):
+        return {
+            "error": {
+                "code": 1,  # TODO: create code
+                "name": "chain_not_initialized",
+                "description": "Chain with name specified is not initialized. Refer to POST /chain/{chain_name}."
+            }
+        }, 400
+
+    if not isinstance(file, starlette.datastructures.UploadFile):
+        return {
+            "error": {
+                "code": 1,  # TODO: create code
+                "name": "not_a_file",
+                "description": "You're not sending a file."
+            }
+        }, 400
 
     file_id = str(uuid.uuid4())
 

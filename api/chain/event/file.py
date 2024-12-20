@@ -102,6 +102,15 @@ def get_v1dot0(token_info, chain_name, event_id, file_id):
 
     device = get_device_from_token_info(token_info)
 
+    if not device.user.check_chain_exists(chain_name):
+        return {
+            "error": {
+                "code": 1,  # TODO: create code
+                "name": "chain_not_initialized",
+                "description": "Chain with name specified is not initialized. Refer to POST /chain/{chain_name}."
+            }
+        }, 400
+
     Path(
         get_config().data_directory + "/userevents/v1/" + device.user.user_id + "/v1/" + chain_name + "/" + event_id).mkdir(
         parents=True, exist_ok=True)

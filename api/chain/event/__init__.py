@@ -129,6 +129,16 @@ def get_v1dot0(token_info: dict, chain_name: str, event_id: str):
         }, 400
 
     device = get_device_from_token_info(token_info)
+
+    if not device.user.check_chain_exists(chain_name):
+        return {
+            "error": {
+                "code": 1,  # TODO: create code
+                "name": "chain_not_initialized",
+                "description": "Chain with name specified is not initialized. Refer to POST /chain/{chain_name}."
+            }
+        }, 400
+
     Path(get_config().data_directory + "/userevents/v1/" + device.user.user_id + "/v1/" + chain_name + "/" + event_id).mkdir(
         parents=True, exist_ok=True)
     if not Path(
@@ -183,17 +193,6 @@ def post_v1dot0(token_info: dict, chain_name: str, event: dict):
             }
         }, 400
 
-    device = get_device_from_token_info(token_info)
-
-    if device.user.get_last_event_id(chain_name) != event.get("parent", None):
-        return {
-            "error": {
-                "code": 1,  # TODO: create code
-                "name": "parent_mismatch",
-                "description": "Event's parent event is not the last event of this chain."
-            }
-        }, 400
-
     if event.get("type", None) is None:
         return {
             "error": {
@@ -227,6 +226,26 @@ def post_v1dot0(token_info: dict, chain_name: str, event: dict):
                 "code": 1,  # TODO: create code
                 "name": "event_version_is_not_a_string",
                 "description": "As a part of specification, version of event have to be string or integer."
+            }
+        }, 400
+
+    device = get_device_from_token_info(token_info)
+
+    if not device.user.check_chain_exists(chain_name):
+        return {
+            "error": {
+                "code": 1,  # TODO: create code
+                "name": "chain_not_initialized",
+                "description": "Chain with name specified is not initialized. Refer to POST /chain/{chain_name}."
+            }
+        }, 400
+
+    if device.user.get_last_event_id(chain_name) != event.get("parent", None):
+        return {
+            "error": {
+                "code": 1,  # TODO: create code
+                "name": "parent_mismatch",
+                "description": "Event's parent event is not the last event of this chain."
             }
         }, 400
 
